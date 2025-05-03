@@ -1,5 +1,4 @@
-//每日更新-2025年5月1日
-
+//每日更新-2025年5月3日
 #include <windows.h>
 #include <windowsx.h>
 #include <vector>
@@ -7,24 +6,23 @@
 #include <sstream>
 #include <algorithm>
 #include <map>
-#include <cmath> // 包含数学库头文件
 
 using namespace std;
 
 //===== 常量定义 =====
 const int WIN_W = 1366;
 const int WIN_H = 768;
-const int SIDEBAR_W = 280;    // 侧边栏宽度
-const int DEBUG_W = 320;      // 调试区宽度
+const int SIDEBAR_W = 350;    // 调整侧边栏宽度
+const int DEBUG_W = 400;      // 调整调试区宽度
 const int WORK_AREA_W = WIN_W - SIDEBAR_W - DEBUG_W;
 const int MAGNETIC_DIST = 10;
 const COLORREF BLOCK_COLORS[] = {
-    RGB(70, 130, 180),       // 蓝色
-    RGB(60, 170, 90),        // 绿色
-    RGB(220, 80, 60),        // 红色
-    RGB(255, 193, 7),        // 黄色
-    RGB(139, 0, 139),        // 紫色
-    RGB(0, 100, 0)           // 深绿色
+    RGB(52, 152, 219),       // 蓝色
+    RGB(46, 204, 113),        // 绿色
+    RGB(231, 76, 60),        // 红色
+    RGB(241, 196, 15),        // 黄色
+    RGB(155, 89, 182),        // 紫色
+    RGB(52, 152, 219)         // 蓝色
 };
 
 //===== 枚举类型定义 =====
@@ -71,8 +69,8 @@ struct CodeBlock {
     }
 
     void Render(HDC hdc) const {
-        COLORREF fillColor = isTemplate ? BLOCK_COLORS[0] : BLOCK_COLORS[static_cast<int>(type) % BLOCK_MAX];
-        COLORREF borderColor = selected ? RGB(255, 255, 255) : RGB(180, 180, 180);
+        COLORREF fillColor = isTemplate ? RGB(44, 62, 80) : BLOCK_COLORS[static_cast<int>(type) % BLOCK_MAX];
+        COLORREF borderColor = selected ? RGB(236, 240, 241) : RGB(70, 70, 70);
 
         HBRUSH brush = CreateSolidBrush(fillColor);
         HPEN pen = CreatePen(PS_SOLID, 2, borderColor);
@@ -133,7 +131,7 @@ struct CodeBlock {
 
         // 如果被选中且不是模板，绘制删除按钮
         if (selected && !isTemplate) {
-            HBRUSH delBrush = CreateSolidBrush(RGB(220, 80, 60));
+            HBRUSH delBrush = CreateSolidBrush(RGB(231, 76, 60));
             SelectObject(hdc, delBrush);
             Ellipse(hdc, x + 220, y + 5, x + 235, y + 20);
             DeleteObject(delBrush);
@@ -178,8 +176,8 @@ CodeBlock* selectedBlock = nullptr;
 POINT dragOffset;
 string debugCode;
 int scrollPos = 0;
+int templateScrollPos = 0; // 新增侧边栏滚动位置
 bool capturingDrag = false;
-POINT dragStartPosition; // 新增：记录拖动起始位置
 
 // 语法高亮设置
 map<BlockType, COLORREF> syntaxHighlighting = {
@@ -198,7 +196,7 @@ map<BlockType, COLORREF> syntaxHighlighting = {
     {BLOCK_CLASS, RGB(255, 128, 128)}       // 类
 };
 
-//===== 双缓冲类 =====
+// 双缓冲类
 class DoubleBuffer {
     HDC hdcMem;
     HBITMAP bmp;
@@ -222,30 +220,30 @@ public:
     }
 };
 
-//===== 初始化模板 =====
+// 初始化模板
 void InitTemplates() {
     templates.clear();
     templates.emplace_back(BLOCK_INCLUDE, "#include <iostream>", "", 20, 20, true, false);
     templates.emplace_back(BLOCK_USING_NAMESPACE, "using namespace std;", "", 20, 100, true, false);
-    templates.emplace_back(BLOCK_MAIN, "int main() {\n    // 代码块\n    return 0;\n}", "", 20, 170, true, false);
-    templates.emplace_back(BLOCK_RETURN, "return 值;", "", 20, 290, true, false);
-    templates.emplace_back(BLOCK_LOOP, "while (条件) {\n    // 循环体\n}", "", 20, 350, true, false);
-    templates.emplace_back(BLOCK_CONDITION, "if (条件) {\n    // 条件体\n}", "", 20, 470, true, false);
-    templates.emplace_back(BLOCK_COUT, "cout << \"输出内容\";", "", 20, 570, true, false);
-    templates.emplace_back(BLOCK_CIN, "cin >> 变量名;", "", 20, 630, true, false);
-    templates.emplace_back(BLOCK_MATH, "结果 = 运算表达式;", "", 20, 690, true, false);
-    templates.emplace_back(BLOCK_LOGIC, "逻辑结果 = 条件1 && 条件2;", "", 20, 750, true, false);
-    templates.emplace_back(BLOCK_COMMENT, "// 这是注释", "", 20, 810, true, false);
-    templates.emplace_back(BLOCK_FUNCTION, "返回类型 函数名(参数) {\n    // 函数体\n}", "", 20, 870, true, false);
+    templates.emplace_back(BLOCK_MAIN, "int main() {\n    \n}", "", 20, 170, true, false);
+    templates.emplace_back(BLOCK_RETURN, "return 值;", "", 20, 250, true, false);
+    templates.emplace_back(BLOCK_LOOP, "while (条件) {\n    // 循环体\n}", "", 20, 300, true, false);
+    templates.emplace_back(BLOCK_CONDITION, "if (条件) {\n    // 条件体\n}", "", 20, 400, true, false);
+    templates.emplace_back(BLOCK_COUT, "cout << \"输出内容\";", "", 20, 480, true, false);
+    templates.emplace_back(BLOCK_CIN, "cin >> 变量名;", "", 20, 550, true, false);
+    templates.emplace_back(BLOCK_MATH, "结果 = 运算表达式;", "", 20, 630, true, false);
+    templates.emplace_back(BLOCK_LOGIC, "逻辑结果 = 条件1 && 条件2;", "", 20, 700, true, false);
+    templates.emplace_back(BLOCK_COMMENT, "// 这是注释", "", 20, 760, true, false);
+    templates.emplace_back(BLOCK_FUNCTION, "返回类型 函数名(参数) {\n    // 函数体\n}", "", 20, 820, true, false);
     
     // 新增常用模板
-    templates.emplace_back(BLOCK_CLASS, "class 类名 {\npublic:\n    // 成员函数\nprivate:\n    // 成员变量\n};", "", 20, 970, true, false);
-    templates.emplace_back(BLOCK_ARRAY, "类型 数组名[大小];", "", 20, 1070, true, false);
-    templates.emplace_back(BLOCK_TYPEDEF, "typedef 类型 别名;", "", 20, 1130, true, false);
-    templates.emplace_back(BLOCK_WIDE_CHAR, "wchar_t 宽字符变量;", "", 20, 1190, true, false);
+    templates.emplace_back(BLOCK_CLASS, "class 类名 {\npublic:\n    // 成员函数\nprivate:\n    // 成员变量\n};", "", 20, 900, true, false);
+    templates.emplace_back(BLOCK_ARRAY, "类型 数组名[大小];", "", 20, 980, true, false);
+    templates.emplace_back(BLOCK_TYPEDEF, "typedef 类型 别名;", "", 20, 1020, true, false);
+    templates.emplace_back(BLOCK_WIDE_CHAR, "wchar_t 宽字符变量;", "", 20, 1070, true, false);
 }
 
-//===== 生成代码 =====
+// 生成代码
 void GenerateCode() {
     stringstream ss;
     vector<CodeBlock> sortedBlocks = blocks;
@@ -262,19 +260,19 @@ void GenerateCode() {
         }
     }
 
-    ss << "// 用户代码\n";
+    ss << "// 用户代码\n\n";
 
     // 处理主函数
     bool hasMain = false;
     for (const CodeBlock& block : sortedBlocks) {
         if (block.type == BLOCK_MAIN) {
-            ss << block.content << "\n";
+            ss << block.content << "\n\n";
             hasMain = true;
             break;
         }
     }
 
-    if (!hasMain) ss << "int main() {\n    return 0;\n}\n\n";
+    if (!hasMain) ss << "// 请从模板区拖拽代码块开始构建你的程序\n";
 
     // 处理其他代码块
     ss << "// 主函数内部\n";
@@ -292,7 +290,7 @@ void GenerateCode() {
     debugCode = ss.str();
 }
 
-//===== 磁吸对齐 =====
+// 磁吸对齐
 void MagneticAlignment(int& newX, int& newY) {
     newX = max(SIDEBAR_W + 20, min(newX, SIDEBAR_W + WORK_AREA_W - 240));
     newY = max(20, newY);
@@ -311,27 +309,30 @@ void MagneticAlignment(int& newX, int& newY) {
     }
 }
 
-//======= 检查删除按钮 =======
+// 检查删除按钮
 bool CheckDeleteButton(int x, int y, CodeBlock* block) {
     return x > block->x + 220 && x < block->x + 235 &&
            y > block->y + 5 && y < block->y + 20;
 }
 
-//===== 窗口过程 =====
+// 窗口过程
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    static HFONT fontMain, fontCode;
-    static HWND hDebugScrollView;
+    static HFONT fontMain, fontCode, fontSidebar;
+    static HWND hDebugScrollView, hTemplateScrollView;
     static SHELLEXECUTEINFO shExecInfo;
 
     switch (msg) {
         case WM_CREATE:
-            // 创建字体，使用黑体
-            fontMain = CreateFont(20, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, ANSI_CHARSET,
+            // 创建字体
+            fontMain = CreateFont(24, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, ANSI_CHARSET,
                                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                  CLEARTYPE_QUALITY, VARIABLE_PITCH, "黑体");
-            fontCode = CreateFont(14, 0, 0, 0, FW_NORMAL, 0, 0, 0, ANSI_CHARSET,
+                                  CLEARTYPE_QUALITY, VARIABLE_PITCH, "Segoe UI");
+            fontCode = CreateFont(20, 0, 0, 0, FW_NORMAL, 0, 0, 0, ANSI_CHARSET,
                                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                  CLEARTYPE_QUALITY, FIXED_PITCH, "黑体");
+                                  CLEARTYPE_QUALITY, FIXED_PITCH, "Consolas");
+            fontSidebar = CreateFont(18, 0, 0, 0, FW_NORMAL, 0, 0, 0, ANSI_CHARSET,
+                                  OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                  CLEARTYPE_QUALITY, VARIABLE_PITCH, "Segoe UI");
 
             // 创建滚动条
             hDebugScrollView = CreateWindowA("SCROLLBAR", NULL,
@@ -339,9 +340,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 WIN_W - DEBUG_W - 17, 0, 17, WIN_H,
                 hwnd, (HMENU)1000, NULL, NULL);
 
+            hTemplateScrollView = CreateWindowA("SCROLLBAR", NULL,
+                WS_CHILD | WS_VISIBLE | SBS_VERT,
+                SIDEBAR_W - 17, 0, 17, WIN_H,
+                hwnd, (HMENU)1001, NULL, NULL);
+
             // 初始化模板
             InitTemplates();
-            GenerateCode();
             break;
 
         case WM_PAINT: {
@@ -351,33 +356,36 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             GetClientRect(hwnd, &rc);
 
             DoubleBuffer db(hdc, rc.right, rc.bottom);
-            FillRect(db, &rc, CreateSolidBrush(RGB(30, 31, 35))); // 深色背景
+            FillRect(db, &rc, CreateSolidBrush(RGB(37, 46, 56))); // 深色背景
 
             // 绘制侧边栏背景
             RECT sidebar = {0, 0, SIDEBAR_W, rc.bottom};
-            FillRect(db, &sidebar, CreateSolidBrush(RGB(39, 40, 45))); // 稍深侧边栏
-            SelectObject(db, fontMain);
-            SetTextColor(db, RGB(180, 180, 180));
+            FillRect(db, &sidebar, CreateSolidBrush(RGB(28, 36, 45))); // 稍深侧边栏
+            SelectObject(db, fontSidebar);
+            SetTextColor(db, RGB(215, 215, 215));
             
             // 绘制侧边栏标题
-            RECT sidebarTitle = {20, 20, SIDEBAR_W - 20, 60};
+            RECT sidebarTitle = {20, 20, SIDEBAR_W - 40, 60};
             DrawTextA(db, "代码块模板库", -1, const_cast<LPRECT>(&sidebarTitle), DT_CENTER | DT_VCENTER);
 
             // 绘制模板分割线
             MoveToEx(db, 0, 60, NULL);
             LineTo(db, SIDEBAR_W, 60);
 
-            // 绘制模板
+            // 绘制模板滚动区域
+            SetScrollPos(hTemplateScrollView, SB_CTL, templateScrollPos, TRUE);
             for (CodeBlock& temp : templates) {
-                temp.Render(db);
+                if (temp.y + 60 > templateScrollPos && temp.y < templateScrollPos + rc.bottom) {
+                    temp.Render(db);
+                }
             }
 
             // 绘制工作区背景
             RECT workArea = {SIDEBAR_W, 0, SIDEBAR_W + WORK_AREA_W, WIN_H};
-            FillRect(db, &workArea, CreateSolidBrush(RGB(30, 31, 35)));
+            FillRect(db, &workArea, CreateSolidBrush(RGB(30, 35, 42)));
 
-            // 绘制网格线 (新功能)
-            HPEN gridPen = CreatePen(PS_DOT, 1, RGB(50, 50, 60));
+            // 绘制网格线
+            HPEN gridPen = CreatePen(PS_DOT, 1, RGB(60, 65, 75));
             SelectObject(db, gridPen);
             for (int y = 0; y < rc.bottom; y += 20) {
                 MoveToEx(db, SIDEBAR_W, y, NULL);
@@ -391,18 +399,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
             // 绘制调试区域背景
             RECT debugArea = {WIN_W - DEBUG_W, 0, WIN_W, WIN_H};
-            FillRect(db, &debugArea, CreateSolidBrush(RGB(23, 24, 29))); // 稍深调试区
+            FillRect(db, &debugArea, CreateSolidBrush(RGB(20, 25, 30))); // 稍深调试区
             SelectObject(db, fontCode);
-            SetTextColor(db, RGB(215, 215, 215));
-            
-            // 绘制调试区域标题
-            RECT debugTitle = {WIN_W - DEBUG_W + 10, 10, WIN_W - 10, 50};
-            DrawTextA(db, "生成代码", -1, const_cast<LPRECT>(&debugTitle), DT_LEFT | DT_VCENTER);
+            SetTextColor(db, RGB(225, 225, 225));
 
             // 计算调试区域代码高度
-            int codeHeight = debugCode.size() * 18;
-            RECT codeRect = {WIN_W - DEBUG_W + 20, -scrollPos, WIN_W - 20, WIN_H - scrollPos};
+            int codeHeight = debugCode.size() * 30;
+            RECT codeRect = {WIN_W - DEBUG_W + 20, -scrollPos, WIN_W - 40, WIN_H - scrollPos + 100};
             DrawTextA(db, debugCode.c_str(), -1, &codeRect, DT_TOP | DT_LEFT | DT_WORDBREAK);
+
+            // 绘制复制按钮
+            SetTextColor(db, RGB(150, 150, 150));
+            RECT copyBtnRect = {WIN_W - DEBUG_W + 20, 20, WIN_W - 60, 50};
+            DrawTextA(db, "点击复制代码", -1, &copyBtnRect, DT_CENTER | DT_VCENTER);
 
             // 更新滚动条范围
             SetScrollRange(hDebugScrollView, SB_CTL, 0, max(codeHeight - (WIN_H - 60), 0), TRUE);
@@ -420,17 +429,35 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 int pos = 0;
 
                 switch (action) {
-                    case SB_LINEDOWN: pos = scrollPos + 20; break;
-                    case SB_LINEUP: pos = scrollPos - 20; break;
-                    case SB_PAGEDOWN: pos = scrollPos + 100; break;
-                    case SB_PAGEUP: pos = scrollPos - 100; break;
+                    case SB_LINEDOWN: pos = scrollPos + 30; break;
+                    case SB_LINEUP: pos = scrollPos - 30; break;
+                    case SB_PAGEDOWN: pos = scrollPos + 150; break;
+                    case SB_PAGEUP: pos = scrollPos - 150; break;
                     case SB_THUMBTRACK: pos = HIWORD(wp); break;
                     default: pos = scrollPos;
                 }
 
-                pos = max(0, min(pos, max((int)debugCode.size() * 18 - (WIN_H - 60), 0)));
+                pos = max(0, min(pos, max((int)debugCode.size() * 30 - (WIN_H - 60), 0)));
                 scrollPos = pos;
                 SetScrollPos(hDebugScrollView, SB_CTL, pos, TRUE);
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            else if ((HWND)lp == hTemplateScrollView) {
+                int action = wp;
+                int pos = 0;
+
+                switch (action) {
+                    case SB_LINEDOWN: pos = templateScrollPos + 30; break;
+                    case SB_LINEUP: pos = templateScrollPos - 30; break;
+                    case SB_PAGEDOWN: pos = templateScrollPos + 150; break;
+                    case SB_PAGEUP: pos = templateScrollPos - 150; break;
+                    case SB_THUMBTRACK: pos = HIWORD(wp); break;
+                    default: pos = templateScrollPos;
+                }
+
+                pos = max(0, min(pos, max(1200 - (WIN_H - 60), 0)));
+                templateScrollPos = pos;
+                SetScrollPos(hTemplateScrollView, SB_CTL, pos, TRUE);
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             break;
@@ -438,105 +465,120 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_LBUTTONDOWN: {
             int x = GET_X_LPARAM(lp);
             int y = GET_Y_LPARAM(lp);
-
+            draggedBlock = nullptr;
+            selectedBlock = nullptr;
+        
             // 取消所有块的选中状态
             for (auto& block : blocks) {
                 block.selected = false;
             }
 
             if (x < SIDEBAR_W) { // 模板区点击
-                capturingDrag = true;
-                dragStartPosition.x = x;
-                dragStartPosition.y = y;
                 for (CodeBlock& temp : templates) {
-                    if (temp.HitTest(x, y)) {
+                    if (temp.HitTest(x, y - templateScrollPos)) {
                         CodeBlock newBlock = temp;
                         newBlock.isTemplate = false;
-                        newBlock.x = SIDEBAR_W + 40;
-                        newBlock.y = 40;
+
+                        // 确保新代码块不会与其他代码块重叠
+                        newBlock.x = SIDEBAR_W + 50;
+                        newBlock.y = 100;
+
+                        for (const CodeBlock& block : blocks) {
+                            if (newBlock.x + 240 > block.x && newBlock.x < block.x + 240 &&
+                                newBlock.y + 60 > block.y && newBlock.y < block.y + 60) {
+                                newBlock.y += 70;
+                            }
+                        }
+
                         blocks.push_back(newBlock);
                         draggedBlock = &blocks.back();
-                        dragOffset.x = x - newBlock.x;
+                        dragOffset.x = x - (newBlock.x);
                         dragOffset.y = y - newBlock.y;
                         SetCapture(hwnd);
                         break;
                     }
                 }
-            } else if (x >= SIDEBAR_W && x < SIDEBAR_W + WORK_AREA_W) { // 工作区点击
-                // 遍历反转，先检测上面的块
-                for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
-                    CodeBlock& block = *it;
+            } 
+            else if (x >= SIDEBAR_W && x < SIDEBAR_W + WORK_AREA_W) { // 工作区点击
+                for (auto& block : blocks) {
                     if (block.HitTest(x, y)) {
                         draggedBlock = &block;
                         dragOffset.x = x - block.x;
                         dragOffset.y = y - block.y;
-
+            
                         selectedBlock = &block;
                         selectedBlock->selected = true;
-
-                        // 检查是否点击删除按钮
+            
                         if (CheckDeleteButton(x, y, selectedBlock)) {
-                            blocks.erase(find(blocks.begin(), blocks.end(), selectedBlock));
-                            GenerateCode();
-                            InvalidateRect(hwnd, NULL, TRUE);
-                            capturingDrag = false;
-                            return 0;
+                            for (auto it = blocks.begin(); it != blocks.end(); ++it) {
+                                if (&(*it) == selectedBlock) {
+                                    blocks.erase(it);
+                                    GenerateCode();
+                                    InvalidateRect(hwnd, NULL, TRUE);
+                                    return 0;
+                                }
+                            }
                         }
                         break;
                     }
                 }
             }
-            
+            else if (x >= WIN_W - DEBUG_W && x <= WIN_W - DEBUG_W + 200 && y >= 20 && y <= 50) {
+                // 复制代码功能
+                OpenClipboard(hwnd);
+                EmptyClipboard();
+                HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, debugCode.size() + 1);
+                memcpy(GlobalLock(hg), debugCode.c_str(), debugCode.size() + 1);
+                GlobalUnlock(hg);
+                SetClipboardData(CF_TEXT, hg);
+                CloseClipboard();
+            }
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         }
 
         case WM_MOUSEMOVE:
-            if (draggedBlock && capturingDrag) {
+            if (draggedBlock && (wp & MK_LBUTTON)) {
                 int newX = GET_X_LPARAM(lp) - dragOffset.x;
                 int newY = GET_Y_LPARAM(lp) - dragOffset.y;
-
+        
                 MagneticAlignment(newX, newY);
-
+        
+                // 检查是否与其他代码块重叠
+                bool overlaps = false;
+                for (const CodeBlock& block : blocks) {
+                    if (&block == draggedBlock) continue;
+                    if (newX + 240 > block.x && newX < block.x + 240 &&
+                        newY + 60 > block.y && newY < block.y + 60) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+        
+                if (overlaps) {
+                    // 如果重叠，恢复到上一次的位置
+                    newX = draggedBlock->x;
+                    newY = draggedBlock->y;
+                }
+        
                 if (newX != draggedBlock->x || newY != draggedBlock->y) {
-                    // 更新位置
+                    RECT oldRect = {
+                        draggedBlock->x - 5, draggedBlock->y - 5,
+                        draggedBlock->x + 240, draggedBlock->y + ((draggedBlock->type == BLOCK_MAIN) ? 105 : 60)
+                    };
+                    InvalidateRect(hwnd, &oldRect, FALSE);
+        
                     draggedBlock->x = newX;
                     draggedBlock->y = newY;
-                    
-                    // 更新语法高亮颜色
-                    auto it = syntaxHighlighting.find(draggedBlock->type);
-                    if (it != syntaxHighlighting.end()) {
-                        draggedBlock->textColor = it->second;
-                    }
-
+        
+                    RECT newRect = {
+                        newX - 5, newY - 5,
+                        newX + 240, newY + ((draggedBlock->type == BLOCK_MAIN) ? 105 : 60)
+                    };
+                    InvalidateRect(hwnd, &newRect, FALSE);
+        
                     GenerateCode();
                     InvalidateRect(hwnd, NULL, TRUE);
-                }
-            }
-            break;
-
-        case WM_LBUTTONUP:
-            if (capturingDrag && draggedBlock) {
-                // 检查是否拖动距离很短，如果是则认为是点击而非拖动
-                int moveDistance = static_cast<int>(sqrt(pow(GET_X_LPARAM(lp) - dragStartPosition.x, 2) + 
-                                        pow(GET_Y_LPARAM(lp) - dragStartPosition.y, 2)));
-                if (moveDistance < 5) { // 如果移动距离小于5像素，则取消拖动
-                    if (draggedBlock->x < SIDEBAR_W) {
-                        // 如果拖回侧边栏则删除
-                        blocks.erase(find(blocks.begin(), blocks.end(), draggedBlock));
-                    }
-                    draggedBlock = nullptr;
-                    ReleaseCapture();
-                    capturingDrag = false;
-                } else {
-                    // 正常完成拖动
-                    if (draggedBlock->x < SIDEBAR_W) {
-                        // 如果拖回侧边栏则删除
-                        blocks.erase(find(blocks.begin(), blocks.end(), draggedBlock));
-                    }
-                    draggedBlock = nullptr;
-                    ReleaseCapture();
-                    capturingDrag = false;
                 }
             }
             break;
@@ -558,10 +600,28 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 ShellExecuteEx(&shExecInfo);
             }
             break;
-
+        case WM_LBUTTONUP:
+            if (draggedBlock) {
+                if (draggedBlock->x < SIDEBAR_W) {
+                    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
+                        if (&(*it) == draggedBlock) {
+                            blocks.erase(it);
+                            GenerateCode();
+                            InvalidateRect(hwnd, NULL, TRUE);
+                            break;
+                        }
+                    }
+                }
+                draggedBlock = nullptr;
+                ReleaseCapture();
+            }
+            break;
         case WM_SIZE:
             if (hDebugScrollView) {
                 MoveWindow(hDebugScrollView, WIN_W - DEBUG_W - 17, 0, 17, WIN_H, TRUE);
+            }
+            if (hTemplateScrollView) {
+                MoveWindow(hTemplateScrollView, SIDEBAR_W - 17, 0, 17, WIN_H, TRUE);
             }
             break;
 
@@ -571,6 +631,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_DESTROY:
             DeleteObject(fontMain);
             DeleteObject(fontCode);
+            DeleteObject(fontSidebar);
             PostQuitMessage(0);
             break;
 
@@ -580,7 +641,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
 }
 
-//===== 程序入口 =====
+// 程序入口
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
     WNDCLASS wc = {};
     wc.lpfnWndProc = WndProc;
@@ -591,8 +652,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
     RegisterClass(&wc);
 
     HWND hwnd = CreateWindowA("CodeBlockEditor", "可视化代码编辑器",
-                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
-                              WIN_W, WIN_H, NULL, NULL, hInst, NULL);
+                            WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+                            WIN_W, WIN_H, NULL, NULL, hInst, NULL);
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
